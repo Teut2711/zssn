@@ -9,6 +9,12 @@ class UserSerializer(serializers.HyperlinkedModelSerializer):
         fields = ["url", "username", "email", "groups"]
 
 
+class ResourceSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Resource
+        fields = ["quantity", "id"]
+
+
 class SurvivorSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Survivor

@@ -3,10 +3,8 @@ from rest_framework import routers
 from survivors import views
 
 router = routers.DefaultRouter()
-router.register(r"users", views.UserViewSet)
-router.register(r"groups", views.GroupViewSet)
 router.register(r"survivors", views.SurvivorViewSet)
-router.register(r"trade", views.TradeViewSet, basename="survivor")
+router.register(r"reports", views.GenerateReportViewSet, basename="report")
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
