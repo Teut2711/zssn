@@ -40,6 +40,9 @@ class SurvivorViewSet(viewsets.ModelViewSet):
         )
 
 
+from django.db.models import Sum, Count
+
+
 class GenerateReportViewSet(viewsets.ViewSet):
     def list(self, request):
         infected = Survivor.objects.filter(
@@ -48,11 +51,21 @@ class GenerateReportViewSet(viewsets.ViewSet):
         total = Survivor.objects.all().count()
         percentage_infected = round((infected / total) * 100, 3)
         percentage_not_infected = 100 - percentage_infected
+        grouped = (
+            Resource.objects.filter(survivor_id__reported_infected_count__lt=3)
+            .values("id")
+            .annotate(sums=Sum("quantity"), counts=Count("quantity"))
+            .order_by()
+        )
+        grouped = list(
+            map(lambda g: {g["id"]: g["sums"] / g["counts"]}, grouped)
+        )
+
         return Response(
             {
                 "percentage_infected": percentage_infected,
                 "percentage_not_infected": percentage_not_infected,
-                "average_resouces": [0],
+                "average_resources": grouped,
             }
         )
 
