@@ -3,14 +3,8 @@ from django.shortcuts import render
 from rest_framework.response import Response
 
 # Create your views here.
-from django.contrib.auth.models import User, Group
 from rest_framework import viewsets
-from rest_framework import permissions
-from rest_framework import mixins
-from rest_framework.views import APIView
 from survivors.serializers import (
-    UserSerializer,
-    GroupSerializer,
     SurvivorSerializer,
     ResourceSerializer,
 )
@@ -21,25 +15,6 @@ from rest_framework.decorators import action
 
 def is_infected(survivor):
     return survivor.reported_infected_count >= 3
-
-
-class UserViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows users to be viewed or edited.
-    """
-
-    queryset = User.objects.all().order_by("-date_joined")
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-
-class ReportViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows users to be viewed or edited.
-    """
-
-    queryset = Survivor.objects.all()
-    serializer_class = SurvivorSerializer
 
 
 class SurvivorViewSet(viewsets.ModelViewSet):
@@ -85,17 +60,32 @@ class GenerateReportViewSet(viewsets.ViewSet):
 class TradeViewSet(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         survivor = Survivor.objects.get(pk=pk)
-        return Response(ResourceSerializer(Resource.objects.filter(survivor_id=survivor)))
+        return Response(
+            ResourceSerializer(
+                Resource.objects.filter(survivor_id=survivor)
+            ).data
+        )
 
     def create(self, request):
-        print(request.data)
+        if len(request.data.keys()) != 2:
+            raise ValueError("Unsupported number of traders")
+        p1, p2 = list(request.data.keys())
+        resources_p1 = request.data[p1]
+        resources_p2 = request.data[p2]
+        p1 = Survivor.objects.get(pk=p1)
+        p2 = Survivor.objects.get(pk=p2)
 
+        def update_records(p, resources_p, resources_other):
+            for entry in Resource.objects.filter(survivor_id=p):
+                entry.quantity += resources_other.get(
+                    entry.id, 0
+                ) - resources_p.get(entry.id, 0)
+                entry.save()
 
-class GroupViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows groups to be viewed or edited.
-    """
+        if not is_infected(p1) and not is_infected(p2):
+            update_records(p1, resources_p1, resources_p2)
+            update_records(p2, resources_p2, resources_p1)
 
-    queryset = Group.objects.all()
-    serializer_class = GroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+            return Response({"status": "updated"})
+        else:
+            return Response({"status": "Failed due to person infected"})

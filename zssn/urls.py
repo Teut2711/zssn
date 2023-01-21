@@ -5,6 +5,8 @@ from survivors import views
 router = routers.DefaultRouter()
 router.register(r"survivors", views.SurvivorViewSet)
 router.register(r"reports", views.GenerateReportViewSet, basename="report")
+router.register(r"trades", views.TradeViewSet, basename="trade")
+
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
