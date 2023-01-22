@@ -49,12 +49,12 @@ class GenerateReportViewSet(viewsets.ViewSet):
         percentage_not_infected = 100 - percentage_infected
         grouped = (
             Resource.objects.filter(survivor_id__contamination__lt=3)
-            .values("id")
+            .values("item_id__name")
             .annotate(sums=Sum("quantity"), counts=Count("quantity"))
             .order_by()
         )
         grouped = list(
-            map(lambda g: {g["id"]: g["sums"] / g["counts"]}, grouped)
+            map(lambda g: {g["item_id__name"]: g["sums"] / g["counts"]}, grouped)
         )
 
         return Response(
