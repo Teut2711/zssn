@@ -82,37 +82,46 @@ class GenerateReportViewSet(viewsets.ViewSet):
 class TradeViewSet(viewsets.ViewSet):
     def retrieve(self, _, pk=None):
         survivor = Survivor.objects.get(pk=pk)
-        items = Resource.objects.filter(survivor_id=survivor).values(
-            "quantity", "item_id__name", "item_id__points"
-        )
 
-        return Response(
-            {
-                "status": "success",
-                "data": [
-                    {
-                        i["item_id__name"]: i["quantity"],
-                        "points": i["item_id__points"],
-                    }
-                    for i in items
-                ],
-            }
-        )
+        if is_infected(survivor):
+            return Response(
+                {
+                    "status": "failure",
+                    "detail": "Infected! Cannot view inventory",
+                }
+            )
+        else:
+
+            items = Resource.objects.filter(survivor_id=survivor).values(
+                "quantity", "item_id__name", "item_id__points"
+            )
+
+            return Response(
+                {
+                    "status": "success",
+                    "data": [
+                        {
+                            i["item_id__name"]: i["quantity"],
+                            "points": i["item_id__points"],
+                        }
+                        for i in items
+                    ],
+                }
+            )
 
     def create(self, request):
         def update_records(p, resources_p, resources_other):
             entries = []
-            for entry in Resource.objects.filter(survivor_id=p ):
+            for entry in Resource.objects.filter(survivor_id=p):
                 entry.quantity += resources_other.get(
                     entry.item_id.name, 0
                 ) - resources_p.get(entry.item_id.name, 0)
                 entries.append(entry)
-            if all(entry.quantity >= 0  for entry in entries)     
+            if all(entry.quantity >= 0 for entry in entries):
                 for entry in entries:
                     entry.save()
             else:
                 raise ValueError("Insufficient balance of quantities")
-
 
         def get_total_gain(resources):
             return sum(
@@ -146,10 +155,10 @@ class TradeViewSet(viewsets.ViewSet):
             )
 
         else:
-            
+
             total_gain_p1 = get_total_gain(resources_p1)
             total_gain_p2 = get_total_gain(resources_p2)
-            
+
             if total_gain_p1 == total_gain_p2:
 
                 try:
@@ -159,9 +168,7 @@ class TradeViewSet(viewsets.ViewSet):
                         {"status": "success", "details": "Updated database"}
                     )
                 except ValueError as err:
-                    return Response(
-                        {"status": "faiilure", "details": str(err)}
-                    )
+                    return Response({"status": "failure", "details": str(err)})
             else:
                 return Response(
                     {
