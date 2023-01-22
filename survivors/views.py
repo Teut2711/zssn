@@ -1,16 +1,11 @@
+from django.db.models import Count, F, Sum
 from django.shortcuts import render
-
-from rest_framework.response import Response
-
 # Create your views here.
 from rest_framework import viewsets
-from survivors.serializers import (
-    SurvivorSerializer,
-    ResourceSerializer,
-)
-
-from survivors.models import Survivor, Resource
 from rest_framework.decorators import action
+from rest_framework.response import Response
+from survivors.models import Resource, Survivor
+from survivors.serializers import ResourceSerializer, SurvivorSerializer
 
 
 def is_infected(survivor):
@@ -38,9 +33,6 @@ class SurvivorViewSet(viewsets.ModelViewSet):
         return Response({pk: {"contamination": survivor_contamination + 1}})
 
 
-from django.db.models import Sum, Count
-
-
 class GenerateReportViewSet(viewsets.ViewSet):
     def list(self, request):
         infected = Survivor.objects.filter(contamination__gte=3).count()
@@ -54,14 +46,21 @@ class GenerateReportViewSet(viewsets.ViewSet):
             .order_by()
         )
         grouped = list(
-            map(lambda g: {g["item_id__name"]: g["sums"] / g["counts"]}, grouped)
+            map(
+                lambda g: {g["item_id__name"]: g["sums"] / g["counts"]},
+                grouped,
+            )
         )
+        infected_people_points_lost = Resource.objects.filter(survivor_id__contamination__gte=3).annotate(
+            infected_people_points=F("quantity") * F("item_id__points")
+        ).first()
 
         return Response(
             {
                 "percentage_infected": percentage_infected,
                 "percentage_not_infected": percentage_not_infected,
                 "average_resources": grouped,
+                "infected_people_points": infected_people_points_lost.infected_people_points
             }
         )
 
