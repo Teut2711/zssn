@@ -5,7 +5,7 @@ from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from survivors.models import Resource, Survivor
+from survivors.models import Resource, Survivor, Item
 from survivors.serializers import ResourceSerializer, SurvivorSerializer
 
 
@@ -83,23 +83,40 @@ class TradeViewSet(viewsets.ViewSet):
     def retrieve(self, _, pk=None):
         survivor = Survivor.objects.get(pk=pk)
         items = Resource.objects.filter(survivor_id=survivor).values(
-            "quantity", "item_id__name"
+            "quantity", "item_id__name", "item_id__points"
         )
 
         return Response(
             {
                 "status": "success",
-                "data": {i["item_id__name"]: i["quantity"] for i in items},
+                "data": [
+                    {
+                        i["item_id__name"]: i["quantity"],
+                        "points": i["item_id__points"],
+                    }
+                    for i in items
+                ],
             }
         )
 
     def create(self, request):
         def update_records(p, resources_p, resources_other):
-            for entry in Resource.objects.filter(survivor_id=p):
+            print(resources_other, resources_p)
+            for entry in Resource.objects.filter(survivor_id=p ):
                 entry.quantity += resources_other.get(
-                    entry.id, 0
-                ) - resources_p.get(entry.id, 0)
+                    entry.item_id.name, 0
+                ) - resources_p.get(entry.item_id.name, 0)
                 entry.save()
+
+        def get_total_gain(resources):
+            return sum(
+                map(
+                    lambda x: x["points"] * resources[x["name"]],
+                    Item.objects.filter(name__in=resources).values(
+                        "points", "name"
+                    ),
+                )
+            )
 
         if len(request.data.keys()) != 2:
             return Response(
@@ -123,29 +140,40 @@ class TradeViewSet(viewsets.ViewSet):
             )
 
         else:
-            total_gain_p1 = (
-                Resource.objects.filter(survivor_id=p1)
-                .annotate(total=F("quantity") * F("item_id__points"))
-                .first()
-                .total_points
-            )
-            total_gain_p2 = (
-                Resource.objects.filter(survivor_id=p2)
-                .annotate(total_points=F("quantity") * F("item_id__points"))
-                .first()
-                .total_points
-            )
+            # total_gain_p1 = (
+            #     Resource.objects.filter(
+            #         survivor_id=p1, item_id__name__in=resources_p1.keys()
+            #     )
+            #     .annotate(total_points=F("quantity") * F("item_id__points"))
+            #     .first()
+            #     .total_points
+            # )
+            total_gain_p1 = get_total_gain(resources_p1)
+            total_gain_p2 = get_total_gain(resources_p2)
+            #    total_gain_p1 = {k:v if k=="points" else v:resources_p1[v] for k, v in total_gain_p1.items()}
+
+            # total_gain_p2 = (
+            #     Resource.objects.filter(
+            #         survivor_id=p2, item_id__name__in=resources_p2.keys()
+            #     )
+            #     .annotate(
+            #         total_points=Sum(F("quantity") * F("item_id__points"))
+            #     )
+            #     .first()
+            #     .total_points
+            # )
+
             if total_gain_p1 == total_gain_p2:
+
                 update_records(p1, resources_p1, resources_p2)
                 update_records(p2, resources_p2, resources_p1)
+                return Response(
+                    {"status": "success", "details": "Updated database"}
+                )
             else:
-                Response(
+                return Response(
                     {
                         "status": "failure",
                         "detail": "Both sides of the trade do not offer the same amount of points.",
                     }
                 )
-
-            return Response(
-                {"status": "success", "details": "Updated database"}
-            )
