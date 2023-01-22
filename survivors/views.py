@@ -101,12 +101,18 @@ class TradeViewSet(viewsets.ViewSet):
 
     def create(self, request):
         def update_records(p, resources_p, resources_other):
-            print(resources_other, resources_p)
+            entries = []
             for entry in Resource.objects.filter(survivor_id=p ):
                 entry.quantity += resources_other.get(
                     entry.item_id.name, 0
                 ) - resources_p.get(entry.item_id.name, 0)
-                entry.save()
+                entries.append(entry)
+            if all(entry.quantity >= 0  for entry in entries)     
+                for entry in entries:
+                    entry.save()
+            else:
+                raise ValueError("Insufficient balance of quantities")
+
 
         def get_total_gain(resources):
             return sum(
@@ -140,36 +146,22 @@ class TradeViewSet(viewsets.ViewSet):
             )
 
         else:
-            # total_gain_p1 = (
-            #     Resource.objects.filter(
-            #         survivor_id=p1, item_id__name__in=resources_p1.keys()
-            #     )
-            #     .annotate(total_points=F("quantity") * F("item_id__points"))
-            #     .first()
-            #     .total_points
-            # )
+            
             total_gain_p1 = get_total_gain(resources_p1)
             total_gain_p2 = get_total_gain(resources_p2)
-            #    total_gain_p1 = {k:v if k=="points" else v:resources_p1[v] for k, v in total_gain_p1.items()}
-
-            # total_gain_p2 = (
-            #     Resource.objects.filter(
-            #         survivor_id=p2, item_id__name__in=resources_p2.keys()
-            #     )
-            #     .annotate(
-            #         total_points=Sum(F("quantity") * F("item_id__points"))
-            #     )
-            #     .first()
-            #     .total_points
-            # )
-
+            
             if total_gain_p1 == total_gain_p2:
 
-                update_records(p1, resources_p1, resources_p2)
-                update_records(p2, resources_p2, resources_p1)
-                return Response(
-                    {"status": "success", "details": "Updated database"}
-                )
+                try:
+                    update_records(p1, resources_p1, resources_p2)
+                    update_records(p2, resources_p2, resources_p1)
+                    return Response(
+                        {"status": "success", "details": "Updated database"}
+                    )
+                except ValueError as err:
+                    return Response(
+                        {"status": "faiilure", "details": str(err)}
+                    )
             else:
                 return Response(
                     {
