@@ -18,7 +18,7 @@ class Survivor(models.Model):
     )
     lat = models.FloatField(null=False)
     lon = models.FloatField(null=False)
-    reported_infected_count = models.PositiveIntegerField(default=0)
+    contamination = models.PositiveIntegerField(default=0)
 
 
 class Item(models.Model):
