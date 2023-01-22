@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 
 
 def is_infected(survivor):
-    return survivor.reported_infected_count >= 3
+    return survivor.contamination >= 3
 
 
 class SurvivorViewSet(viewsets.ModelViewSet):
@@ -32,12 +32,10 @@ class SurvivorViewSet(viewsets.ModelViewSet):
     )
     def increase_contamination(self, _, pk):
         survivor = Survivor.objects.get(pk=pk)
-        survivor_contamination = survivor.reported_infected_count
-        survivor.reported_infected_count = survivor_contamination + 1
+        survivor_contamination = survivor.contamination
+        survivor.contamination = survivor_contamination + 1
         survivor.save()
-        return Response(
-            {pk: {"reported_infected_count": survivor_contamination + 1}}
-        )
+        return Response({pk: {"contamination": survivor_contamination + 1}})
 
 
 from django.db.models import Sum, Count
@@ -45,14 +43,12 @@ from django.db.models import Sum, Count
 
 class GenerateReportViewSet(viewsets.ViewSet):
     def list(self, request):
-        infected = Survivor.objects.filter(
-            reported_infected_count__gte=3
-        ).count()
+        infected = Survivor.objects.filter(contamination__gte=3).count()
         total = Survivor.objects.all().count()
         percentage_infected = round((infected / total) * 100, 3)
         percentage_not_infected = 100 - percentage_infected
         grouped = (
-            Resource.objects.filter(survivor_id__reported_infected_count__lt=3)
+            Resource.objects.filter(survivor_id__contamination__lt=3)
             .values("id")
             .annotate(sums=Sum("quantity"), counts=Count("quantity"))
             .order_by()

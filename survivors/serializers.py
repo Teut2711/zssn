@@ -26,24 +26,21 @@ class SurvivorSerializer(serializers.HyperlinkedModelSerializer):
             "gender",
             "lat",
             "lon",
-            "reported_infected_count",
+            "contamination",
         ]
-
-
-
-
 
 
 class CountSerializer(serializers.HyperlinkedModelSerializer):
     count = serializers.IntegerField(min_value=0)
+
     class Meta:
         model = Item
-        fields = ["name" ]
+        fields = ["name"]
+
 
 class TradeSerializer(serializers.HyperlinkedModelSerializer):
     survivor_1 = CountSerializer(many=True)
     survivor_2 = CountSerializer(many=True)
- 
 
 
 class GroupSerializer(serializers.HyperlinkedModelSerializer):
