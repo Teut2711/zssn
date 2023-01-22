@@ -1,5 +1,6 @@
 from django.db.models import Count, F, Sum
 from django.shortcuts import render
+
 # Create your views here.
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -51,27 +52,35 @@ class GenerateReportViewSet(viewsets.ViewSet):
                 grouped,
             )
         )
-        infected_people_points_lost = Resource.objects.filter(survivor_id__contamination__gte=3).annotate(
-            infected_people_points=F("quantity") * F("item_id__points")
-        ).first()
+        infected_people_points_lost = (
+            Resource.objects.filter(survivor_id__contamination__gte=3)
+            .annotate(
+                infected_people_points=F("quantity") * F("item_id__points")
+            )
+            .first()
+            .infected_people_points
+        )
 
         return Response(
             {
                 "percentage_infected": percentage_infected,
                 "percentage_not_infected": percentage_not_infected,
                 "average_resources": grouped,
-                "infected_people_points": infected_people_points_lost.infected_people_points
+                "infected_people_points": infected_people_points_lost,
             }
         )
 
 
 class TradeViewSet(viewsets.ViewSet):
-    def retrieve(self, request, pk=None):
+    def retrieve(self, _, pk=None):
         survivor = Survivor.objects.get(pk=pk)
         return Response(
-            ResourceSerializer(
-                Resource.objects.filter(survivor_id=survivor)
-            ).data
+            {
+                i["item_id__name"]: i["quantity"]
+                for i in Resource.objects.filter(survivor_id=survivor).values(
+                    "quantity", "item_id__name"
+                )
+            }
         )
 
     def create(self, request):
