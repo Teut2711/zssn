@@ -7,7 +7,6 @@ class Survivor(models.Model):
     class GenderTypes(models.TextChoices):
         MALE = "M", _("Male")
         FEMALE = "F", _("Female")
-        OTHER = "O", _("Other")
 
     id = models.UUIDField(primary_key=True, null=False, default=uuid.uuid4)
     name = models.CharField(max_length=100, null=False)
